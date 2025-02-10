@@ -1,0 +1,13 @@
+[Unit]
+Description=PaxCalima2MQTT
+
+
+[Service]
+Type=simple
+Restart=always
+ExecStart=/usr/bin/python3 /home/pi/PaxCalima2MQTT/PaxCalima2MQTT.py
+User=pi
+
+[Install]
+WantedBy=multi-user.target
+
