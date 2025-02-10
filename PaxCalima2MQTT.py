@@ -9,7 +9,6 @@ from pycalima.Calima import Calima
 broker_address="homeautomation"
 discovery_topic="homeassistant"
 my_topic="PaxCalima2MQTT"
-#port="/dev/grandview"
 mac="XX:XX:XX:XX:XX:XX"
 pin="XXXXXXXX"
 device_name="Projector Room Fan"
