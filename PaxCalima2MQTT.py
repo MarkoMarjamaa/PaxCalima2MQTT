@@ -4,7 +4,7 @@
 import paho.mqtt.client as mqtt
 import json
 import time
-from Calima import Calima
+from pycalima.Calima import Calima
 
 broker_address="homeautomation"
 discovery_topic="homeassistant"
