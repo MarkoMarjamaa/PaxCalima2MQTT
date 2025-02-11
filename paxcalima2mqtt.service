@@ -5,6 +5,7 @@ Description=PaxCalima2MQTT
 [Service]
 Type=simple
 Restart=always
+RestartSec=30
 ExecStart=/usr/bin/python3 /home/pi/PaxCalima2MQTT/PaxCalima2MQTT.py
 User=pi
 
