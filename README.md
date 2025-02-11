@@ -28,7 +28,7 @@ device_id="projector_room_fan"
 
 This is for only if you have older version of HA and it uses still Python 3.9. I will be porting this to 3.10 once I update HA later. 
 
-Updating values works directly with MQTT
+Updating values works directly with MQTT and are also updatable in HA
 ```
       - service: mqtt.publish
         data:
