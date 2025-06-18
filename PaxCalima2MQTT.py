@@ -5,6 +5,7 @@ import paho.mqtt.client as mqtt
 import json
 import time
 from pycalima.Calima import Calima
+import threading
 
 broker_address="homeautomation"
 discovery_topic="homeassistant"
@@ -13,6 +14,8 @@ mac="XX:XX:XX:XX:XX:XX"
 pin="XXXXXXXX"
 device_name="Projector Room Fan"
 device_id="projector_room_fan"
+
+bluetooth_lock = threading.Lock()
 
 def refresh_all(fan, client):
 	#print('Reading data')
@@ -76,169 +79,199 @@ def on_message(client, userdata, message):
 	#print(message.topic)
 	#print(value)
 	fan = None
-	try:
-		if message.topic in ( base_topic+"/heatdistributorsettings_temperaturelimit/set", base_topic+"/heatdistributorsettings_fanspeedbelow/set", base_topic+"/heatdistributorsettings_fanspeedabove/set"):
-			fan = Calima(mac, pin)
-			if (fan is None):
-				print('Not connected')
+	with bluetooth_lock: 
+		try:
+			if message.topic in ( base_topic+"/heatdistributorsettings_temperaturelimit/set", base_topic+"/heatdistributorsettings_fanspeedbelow/set", base_topic+"/heatdistributorsettings_fanspeedabove/set"):
+				fan = Calima(mac, pin)
+				if (fan is None):
+					print('Not connected')
+				else:
+					if fan.conn is None:
+						print('Not connected')
+					else:
+						#print('Reading data')
+						HeatDistributorSettings = fan.getHeatDistributor()
+						HeatDistributorSettings_TemperatureLimit = HeatDistributorSettings.TemperatureLimit
+						HeatDistributorSettings_FanSpeedBelow = HeatDistributorSettings.FanSpeedBelow
+						HeatDistributorSettings_FanSpeedAbove = HeatDistributorSettings.FanSpeedAbove
+						if message.topic == base_topic+"/heatdistributorsettings_temperaturelimit/set" :
+							HeatDistributorSettings_TemperatureLimit = value
+						if message.topic == base_topic+"/heatdistributorsettings_fanspeedbelow/set" :
+							HeatDistributorSettings_FanSpeedBelow = value
+						if message.topic == base_topic+"/heatdistributorsettings_fanspeedabove/set" :
+							HeatDistributorSettings_FanSpeedAbove = value
+						# Change value
+						fan.setHeatDistributor(int(HeatDistributorSettings_TemperatureLimit), int(HeatDistributorSettings_FanSpeedBelow), int(HeatDistributorSettings_FanSpeedAbove))
+	
+			elif message.topic in (base_topic+"/mode/set"):
+				fan = Calima(mac, pin)
+				if (fan is None):
+					print('Not connected')
+				else:
+					if fan.conn is None:
+						print('Not connected')
+					else:
+						#print('Reading data')
+						if value == "MultiMode" : fan.setMode(int(0))
+						if value == "DraftShutterMode" : fan.setMode(int(1))
+						if value == "WallSwitchExtendedRuntimeMode" : fan.setMode(int(2))
+						if value == "WallSwitchNoExtendedRuntimeMode" : fan.setMode(int(3))
+						if value == "HeatDistributionMode" : fan.setMode(int(4))
+	
+			elif message.topic in (base_topic+"/fanspeed_humidity/set",base_topic+"/fanspeed_light/set",base_topic+"/fanspeed_trickle/set"):
+				fan = Calima(mac, pin)
+				if (fan is None):
+					print('Not connected')
+				else:
+					if fan.conn is None:
+						print('Not connected')
+					else:
+						#print('Reading data')
+						FanSpeeds = fan.getFanSpeedSettings()
+						FanSpeeds_Humidity = FanSpeeds.Humidity
+						FanSpeeds_Light = FanSpeeds.Light
+						FanSpeeds_Trickle = FanSpeeds.Trickle
+						if message.topic == base_topic+"/fanspeed_humidity/set" : 
+							FanSpeeds_Humidity = value
+						if message.topic == base_topic+"/fanspeed_light/set" : 
+							FanSpeeds_Light = value
+						if message.topic == base_topic+"/fanspeed_trickle/set" : 
+							FanSpeeds_Trickle = value
+						fan.setFanSpeedSettings(int(FanSpeeds_Humidity), int(FanSpeeds_Light), int(FanSpeeds_Trickle))
+	
+			elif message.topic in (base_topic+"/sensitivity_humidity/set",base_topic+"/sensitivity_light/set"):
+				fan = Calima(mac, pin)
+				if (fan is None):
+					print('Not connected')
+				else:
+					if fan.conn is None:
+						print('Not connected')
+					else:
+						#print('Reading data')
+						Sensitivity = fan.getSensorsSensitivity()
+						Sensitivity_Humidity = Sensitivity.Humidity
+						Sensitivity_Light = Sensitivity.Light
+						if message.topic == base_topic+"/sensitivity_humidity/set" : 
+							Sensitivity_Humidity = value
+						if message.topic == base_topic+"/sensitivity_light/set" : 
+							Sensitivity_Light = value
+						fan.setSensorsSensitivity(int(Sensitivity_Humidity),int(Sensitivity_Light))
+	
+			elif message.topic in (base_topic+"/lightsensorsettings_delayedstart/set",base_topic+"/lightsensorsettings_runningtime/set"):
+				fan = Calima(mac, pin)
+				if (fan is None):
+					print('Not connected')
+				else:
+					if fan.conn is None:
+						print('Not connected')
+					else:
+						#print('Reading data')
+						LightSensorSettings = fan.getLightSensorSettings()
+						LightSensorSettings_DelayedStart = LightSensorSettings.DelayedStart
+						LightSensorSettings_RunningTime = LightSensorSettings.RunningTime
+						
+						if message.topic == base_topic+"/lightsensorsettings_delayedstart/set" : 
+							LightSensorSettings_DelayedStart = value
+						if message.topic == base_topic+"/lightsensorsettings_runningtime/set" : 
+							LightSensorSettings_RunningTime = value
+						fan.setLightSensorSettings(int(LightSensorSettings_DelayedStart), int(LightSensorSettings_RunningTime))
+	
+			elif message.topic in (base_topic+"/boostmode/set",base_topic+"/boostmodespeed/set",base_topic+"/boostmodesec/set"):
+				fan = Calima(mac, pin)
+				if (fan is None):
+					print('Not connected')
+				else:
+					if fan.conn is None:
+						print('Not connected')
+					else:
+						#print('Reading data')
+						BoostMode = fan.getBoostMode()
+						BoostMode_OnOff = BoostMode.OnOff
+						BoostMode_Speed = BoostMode.Speed
+						BoostMode_Seconds = BoostMode.Seconds
+						
+						if message.topic == base_topic+"/boostmode/set" : 
+							BoostMode_OnOff = value
+						if message.topic == base_topic+"/boostmodespeed/set" : 
+							BoostMode_Speed = value
+						if message.topic == base_topic+"/boostmodesec/set" : 
+							BoostMode_Seconds = value
+						
+						fan.setBoostMode(int(BoostMode_OnOff),int(BoostMode_Speed),int(BoostMode_Seconds))
+	
+			elif message.topic in (base_topic+"/silenthours_on/set",base_topic+"/silenthours_startinghour/set",base_topic+"/silenthours_startingminute/set",base_topic+"/silenthours_endinghour/set",base_topic+"/silenthours_endingminute/set"):
+				fan = Calima(mac, pin)
+				if (fan is None):
+					print('Not connected')
+				else:
+					if fan.conn is None:
+						print('Not connected')
+					else:
+						#print('Reading data')
+						SilentHours = fan.getSilentHours()
+						SilentHours_On = SilentHours.On
+						SilentHours_StartingHour = SilentHours.StartingHour
+						SilentHours_StartingMinute = SilentHours.StartingMinute
+						SilentHours_EndingHour = SilentHours.EndingHour
+						SilentHours_EndingMinute = SilentHours.EndingMinute
+						
+						if message.topic == base_topic+"/silenthours_on/set" : 
+							SilentHours_On = value
+						if message.topic == base_topic+"/silenthours_startinghour/set" : 
+							SilentHours_StartingHour = value
+						if message.topic == base_topic+"/silenthours_startingminute/set" : 
+							SilentHours_StartingMinute = value
+						if message.topic == base_topic+"/silenthours_endinghour/set" : 
+							SilentHours_EndingHour = value
+						if message.topic == base_topic+"/silenthours_endingminute/set" : 
+							SilentHours_EndingMinute = value
+						fan.setSilentHours(int(SilentHours_On),int(SilentHours_StartingHour),int(SilentHours_StartingMinute),int(SilentHours_EndingHour), int(SilentHours_EndingMinute))
+	
+			elif message.topic in (base_topic+"/trickledays_weekdays/set",base_topic+"/trickledays_weekends/set"):
+				fan = Calima(mac, pin)
+				if (fan is None):
+					print('Not connected')
+				else:
+					if fan.conn is None:
+						print('Not connected')
+					else:
+						#print('Reading data')
+						TrickleDays = fan.getTrickleDays()
+						TrickleDays_Weekdays = TrickleDays.Weekdays
+						TrickleDays_Weekends = TrickleDays.Weekends
+						
+						if message.topic == base_topic+"/trickledays_weekdays/set" : 
+							TrickleDays_Weekdays = value
+						if message.topic == base_topic+"/trickledays_weekends/set" : 
+							TrickleDays_Weekends = value
+						fan.setTrickleDays(int(TrickleDays_Weekdays),int(TrickleDays_Weekends))
+	
+			elif message.topic in (base_topic+"/automatic_cycles/set"):
+				fan = Calima(mac, pin)
+				if (fan is None):
+					print('Not connected')
+				else:
+					if fan.conn is None:
+						print('Not connected')
+					else:
+						#print('Reading data')
+						fan.setAutomaticCycles(int(value))
+	
 			else:
-				#print('Reading data')
-				HeatDistributorSettings = fan.getHeatDistributor()
-				HeatDistributorSettings_TemperatureLimit = HeatDistributorSettings.TemperatureLimit
-				HeatDistributorSettings_FanSpeedBelow = HeatDistributorSettings.FanSpeedBelow
-				HeatDistributorSettings_FanSpeedAbove = HeatDistributorSettings.FanSpeedAbove
-				if message.topic == base_topic+"/heatdistributorsettings_temperaturelimit/set" :
-					HeatDistributorSettings_TemperatureLimit = value
-				if message.topic == base_topic+"/heatdistributorsettings_fanspeedbelow/set" :
-					HeatDistributorSettings_FanSpeedBelow = value
-				if message.topic == base_topic+"/heatdistributorsettings_fanspeedabove/set" :
-					HeatDistributorSettings_FanSpeedAbove = value
-				# Change value
-				fan.setHeatDistributor(int(HeatDistributorSettings_TemperatureLimit), int(HeatDistributorSettings_FanSpeedBelow), int(HeatDistributorSettings_FanSpeedAbove))
-
-		elif message.topic in (base_topic+"/mode/set"):
-			fan = Calima(mac, pin)
-			if (fan is None):
-				print('Not connected')
-			else:
-				#print('Reading data')
-				if value == "MultiMode" : fan.setMode(int(0))
-				if value == "DraftShutterMode" : fan.setMode(int(1))
-				if value == "WallSwitchExtendedRuntimeMode" : fan.setMode(int(2))
-				if value == "WallSwitchNoExtendedRuntimeMode" : fan.setMode(int(3))
-				if value == "HeatDistributionMode" : fan.setMode(int(4))
-
-		elif message.topic in (base_topic+"/fanspeed_humidity/set",base_topic+"/fanspeed_light/set",base_topic+"/fanspeed_trickle/set"):
-			fan = Calima(mac, pin)
-			if (fan is None):
-				print('Not connected')
-			else:
-				#print('Reading data')
-				FanSpeeds = fan.getFanSpeedSettings()
-				FanSpeeds_Humidity = FanSpeeds.Humidity
-				FanSpeeds_Light = FanSpeeds.Light
-				FanSpeeds_Trickle = FanSpeeds.Trickle
-				if message.topic == base_topic+"/fanspeed_humidity/set" : 
-					FanSpeeds_Humidity = value
-				if message.topic == base_topic+"/fanspeed_light/set" : 
-					FanSpeeds_Light = value
-				if message.topic == base_topic+"/fanspeed_trickle/set" : 
-					FanSpeeds_Trickle = value
-				fan.setFanSpeedSettings(int(FanSpeeds_Humidity), int(FanSpeeds_Light), int(FanSpeeds_Trickle))
-
-		elif message.topic in (base_topic+"/sensitivity_humidity/set",base_topic+"/sensitivity_light/set"):
-			fan = Calima(mac, pin)
-			if (fan is None):
-				print('Not connected')
-			else:
-				#print('Reading data')
-				Sensitivity = fan.getSensorsSensitivity()
-				Sensitivity_Humidity = Sensitivity.Humidity
-				Sensitivity_Light = Sensitivity.Light
-				if message.topic == base_topic+"/sensitivity_humidity/set" : 
-					Sensitivity_Humidity = value
-				if message.topic == base_topic+"/sensitivity_light/set" : 
-					Sensitivity_Light = value
-				fan.setSensorsSensitivity(int(Sensitivity_Humidity),int(Sensitivity_Light))
-
-		elif message.topic in (base_topic+"/lightsensorsettings_delayedstart/set",base_topic+"/lightsensorsettings_runningtime/set"):
-			fan = Calima(mac, pin)
-			if (fan is None):
-				print('Not connected')
-			else:
-				#print('Reading data')
-				LightSensorSettings = fan.getLightSensorSettings()
-				LightSensorSettings_DelayedStart = LightSensorSettings.DelayedStart
-				LightSensorSettings_RunningTime = LightSensorSettings.RunningTime
-				
-				if message.topic == base_topic+"/lightsensorsettings_delayedstart/set" : 
-					LightSensorSettings_DelayedStart = value
-				if message.topic == base_topic+"/lightsensorsettings_runningtime/set" : 
-					LightSensorSettings_RunningTime = value
-				fan.setLightSensorSettings(int(LightSensorSettings_DelayedStart), int(LightSensorSettings_RunningTime))
-
-		elif message.topic in (base_topic+"/boostmode/set",base_topic+"/boostmodespeed/set",base_topic+"/boostmodesec/set"):
-			fan = Calima(mac, pin)
-			if (fan is None):
-				print('Not connected')
-			else:
-				#print('Reading data')
-				BoostMode = fan.getBoostMode()
-				BoostMode_OnOff = BoostMode.OnOff
-				BoostMode_Speed = BoostMode.Speed
-				BoostMode_Seconds = BoostMode.Seconds
-				
-				if message.topic == base_topic+"/boostmode/set" : 
-					BoostMode_OnOff = value
-				if message.topic == base_topic+"/boostmodespeed/set" : 
-					BoostMode_Speed = value
-				if message.topic == base_topic+"/boostmodesec/set" : 
-					BoostMode_Seconds = value
-				
-				fan.setBoostMode(int(BoostMode_OnOff),int(BoostMode_Speed),int(BoostMode_Seconds))
-
-		elif message.topic in (base_topic+"/silenthours_on/set",base_topic+"/silenthours_startinghour/set",base_topic+"/silenthours_startingminute/set",base_topic+"/silenthours_endinghour/set",base_topic+"/silenthours_endingminute/set"):
-			fan = Calima(mac, pin)
-			if (fan is None):
-				print('Not connected')
-			else:
-				#print('Reading data')
-				SilentHours = fan.getSilentHours()
-				SilentHours_On = SilentHours.On
-				SilentHours_StartingHour = SilentHours.StartingHour
-				SilentHours_StartingMinute = SilentHours.StartingMinute
-				SilentHours_EndingHour = SilentHours.EndingHour
-				SilentHours_EndingMinute = SilentHours.EndingMinute
-				
-				if message.topic == base_topic+"/silenthours_on/set" : 
-					SilentHours_On = value
-				if message.topic == base_topic+"/silenthours_startinghour/set" : 
-					SilentHours_StartingHour = value
-				if message.topic == base_topic+"/silenthours_startingminute/set" : 
-					SilentHours_StartingMinute = value
-				if message.topic == base_topic+"/silenthours_endinghour/set" : 
-					SilentHours_EndingHour = value
-				if message.topic == base_topic+"/silenthours_endingminute/set" : 
-					SilentHours_EndingMinute = value
-				fan.setSilentHours(int(SilentHours_On),int(SilentHours_StartingHour),int(SilentHours_StartingMinute),int(SilentHours_EndingHour), int(SilentHours_EndingMinute))
-
-		elif message.topic in (base_topic+"/trickledays_weekdays/set",base_topic+"/trickledays_weekends/set"):
-			fan = Calima(mac, pin)
-			if (fan is None):
-				print('Not connected')
-			else:
-				#print('Reading data')
-				TrickleDays = fan.getTrickleDays()
-				TrickleDays_Weekdays = TrickleDays.Weekdays
-				TrickleDays_Weekends = TrickleDays.Weekends
-				
-				if message.topic == base_topic+"/trickledays_weekdays/set" : 
-					TrickleDays_Weekdays = value
-				if message.topic == base_topic+"/trickledays_weekends/set" : 
-					TrickleDays_Weekends = value
-				fan.setTrickleDays(int(TrickleDays_Weekdays),int(TrickleDays_Weekends))
-
-		elif message.topic in (base_topic+"/automatic_cycles/set"):
-			fan = Calima(mac, pin)
-			if (fan is None):
-				print('Not connected')
-			else:
-				#print('Reading data')
-				fan.setAutomaticCycles(int(value))
-
-		else:
-			print("WTF")
-		
-		if fan is not None:
-			time.sleep(2)
-			refresh_all(fan, client)
-
-	except :
-		print('Not connected, error')
-
-	finally:
-		if fan is not None:
-			fan.disconnect()
+				print("WTF")
+			
+			if fan is not None:
+				if fan.conn is not None:
+					time.sleep(2)
+					refresh_all(fan, client)
+	
+		except :
+			print('Not connected, error')
+	
+		finally:
+			if fan is not None:
+				if fan.conn is not None:
+					fan.disconnect()
 
 ########################################
 
@@ -334,21 +367,27 @@ for sensor in sensors:
 	
 #    print (json.dumps(config_data))
 
-try:
-	# Publish data
-	fan = Calima(mac, pin)
-
-	if (fan is None):
-		print('Not connected')
-	else:
-		refresh_all(fan, client)
-except :
-	print('Not connected, error')
-
-finally:
-	if fan is not None:
-		#print('Disconnecting')
-		fan.disconnect()
+fan = None
+with bluetooth_lock: 
+	try:
+		# Publish data
+		fan = Calima(mac, pin)
+	
+		if (fan is None):
+			print('Not connected')
+		else:
+			if fan.conn is None:
+				print('Not connected')
+			else:
+				refresh_all(fan, client)
+	except :
+		print('Not connected, error')
+	
+	finally:
+		if fan is not None:
+			#print('Disconnecting')
+			if fan.conn is not None:
+				fan.disconnect()
 
 # Start on_message loop
 client.loop_start()
@@ -360,33 +399,34 @@ try:
 		# Wait for 5 minutes (300 seconds)
 		time.sleep(60)
 
-		try:
-			# Publish data
-			fan = Calima(mac, pin)
-
-			if (fan is None):
-				print('Not connected')
-			else:
-				#print('Reading data')
-				FanState = fan.getState()
-
-				if (FanState is None):
-					print('Could not read data')
-				else: 
-					#print(FanState.RPM)
-					client.publish(base_topic+"/humidity/state",FanState.Humidity, retain=True)
-					client.publish(base_topic+"/temperature/state",FanState.Temp, retain=True)
-					client.publish(base_topic+"/light/state",FanState.Light, retain=True)
-					client.publish(base_topic+"/rpm/state",FanState.RPM, retain=True)
-					client.publish(base_topic+"/state/state",FanState.Mode, retain=True)
-
-		except :
-			print('Not connected, error')
-
-		finally:
-			if fan is not None:
-				#print('Disconnecting')
-				fan.disconnect()
+		with bluetooth_lock: 
+			try:
+				# Publish data
+				fan = Calima(mac, pin)
+	
+				if (fan is None):
+					print('Not connected')
+				else:
+					#print('Reading data')
+					FanState = fan.getState()
+	
+					if (FanState is None):
+						print('Could not read data')
+					else: 
+						#print(FanState.RPM)
+						client.publish(base_topic+"/humidity/state",FanState.Humidity, retain=True)
+						client.publish(base_topic+"/temperature/state",FanState.Temp, retain=True)
+						client.publish(base_topic+"/light/state",FanState.Light, retain=True)
+						client.publish(base_topic+"/rpm/state",FanState.RPM, retain=True)
+						client.publish(base_topic+"/state/state",FanState.Mode, retain=True)
+	
+			except :
+				print('Not connected, error')
+	
+			finally:
+				if fan is not None:
+					#print('Disconnecting')
+					fan.disconnect()
 			
 		
 except KeyboardInterrupt:
