@@ -1,14 +1,13 @@
 [Unit]
 Description=PaxCalima2MQTT
 
-
 [Service]
 Type=simple
 Restart=always
-RestartSec=30
-ExecStart=/usr/bin/python3 /home/pi/PaxCalima2MQTT/PaxCalima2MQTT.py
+RestartSec=5
+StandardOutput=journal
+ExecStart=/home/pi/PaxCalima2MQTT/PaxCalima2MQTT.sh
 User=pi
 
 [Install]
 WantedBy=multi-user.target
-
