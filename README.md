@@ -44,3 +44,4 @@ systemctl enable paxcalima2mqtt
 systemctl restart paxcalima2mqtt
 systemctl status paxcalima2mqtt
 ```
+New version exits python script in case of error, restarts bluetooth adapter and start again. This seems to work with Rpi3&4 bluetooth. ( I only have Pax controlled with Rpi BT so it's ok to restart it ) 
