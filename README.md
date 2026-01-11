@@ -45,3 +45,10 @@ systemctl restart paxcalima2mqtt
 systemctl status paxcalima2mqtt
 ```
 New version exits python script in case of error, restarts bluetooth adapter and start again. This seems to work with Rpi3&4 bluetooth. ( I only have Pax controlled with Rpi BT so it's ok to restart it ) 
+
+Edit: Works also with Python3.11. 
+Bluez-5.47 compile needs this: 
+apt-get install libgtk-3-dev
+
+and working paho-version: 
+pip install paho-mqtt==1.6.1
