@@ -283,7 +283,7 @@ for sensor in sensors:
     
     # Construct the payload for each sensor
     sensor_payload = {
-        "name": device_name + " " + sensor_name,
+        "name": sensor_name,
         "state_topic": f"{base_topic}/{sensor_id}/state",
         "unique_id": f"{device_id}_{sensor_id}",
         "device": device_data  # Use the same device for all sensors
