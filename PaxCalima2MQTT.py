@@ -17,13 +17,17 @@ device_id="projector_room_fan"
 
 bluetooth_lock = threading.Lock()
 
+# Default polling (minutes). Will be overwritten by retained MQTT state if available.
+Polling_minutes = 1
+
+
 def refresh_all(fan, client):
 	#print('Reading data')
 	FanState = fan.getState()
 
 	if (FanState is None):
 		print('Could not read data')
-	else: 
+	else:
 		FanSpeeds = fan.getFanSpeedSettings()
 		Sensitivity = fan.getSensorsSensitivity()
 		LightSensorSettings = fan.getLightSensorSettings()
@@ -31,7 +35,7 @@ def refresh_all(fan, client):
 		BoostMode = fan.getBoostMode()
 		SilentHours = fan.getSilentHours()
 		TrickleDays = fan.getTrickleDays()
-		
+
 		client.publish(base_topic+"/humidity/state",FanState.Humidity, retain=True)
 		client.publish(base_topic+"/temperature/state",FanState.Temp, retain=True)
 		client.publish(base_topic+"/light/state",FanState.Light, retain=True)
@@ -72,12 +76,34 @@ def refresh_all(fan, client):
 		client.publish(base_topic+"/automatic_cycles/state",fan.getAutomaticCycles(), retain=True)
 
 
-
 ############
 def on_message(client, userdata, message):
+	global Polling_minutes
 	value = str(message.payload.decode("utf-8"))
 	fan = None
-	with bluetooth_lock: 
+
+	# Handle polling_minutes first (no Bluetooth needed)
+	if message.topic == base_topic+"/polling_minutes/set":
+		# Only publish to state (retain). Actual update happens when state is received.
+		try:
+			pm = int(float(value))
+			if pm < 1:
+				pm = 1
+			client.publish(base_topic+"/polling_minutes/state", pm, retain=True)
+		except:
+			pass
+		return
+	elif message.topic == base_topic+"/polling_minutes/state":
+		try:
+			pm = int(float(value))
+			if pm < 1:
+				pm = 1
+			Polling_minutes = pm
+		except:
+			pass
+		return
+
+	with bluetooth_lock:
 		try:
 			if message.topic in ( base_topic+"/heatdistributorsettings_temperaturelimit/set", base_topic+"/heatdistributorsettings_fanspeedbelow/set", base_topic+"/heatdistributorsettings_fanspeedabove/set"):
 				fan = Calima(mac, pin)
@@ -114,11 +140,11 @@ def on_message(client, userdata, message):
 				FanSpeeds_Humidity = FanSpeeds.Humidity
 				FanSpeeds_Light = FanSpeeds.Light
 				FanSpeeds_Trickle = FanSpeeds.Trickle
-				if message.topic == base_topic+"/fanspeed_humidity/set" : 
+				if message.topic == base_topic+"/fanspeed_humidity/set" :
 					FanSpeeds_Humidity = value
-				if message.topic == base_topic+"/fanspeed_light/set" : 
+				if message.topic == base_topic+"/fanspeed_light/set" :
 					FanSpeeds_Light = value
-				if message.topic == base_topic+"/fanspeed_trickle/set" : 
+				if message.topic == base_topic+"/fanspeed_trickle/set" :
 					FanSpeeds_Trickle = value
 				fan.setFanSpeedSettings(int(FanSpeeds_Humidity), int(FanSpeeds_Light), int(FanSpeeds_Trickle))
 
@@ -129,9 +155,9 @@ def on_message(client, userdata, message):
 				Sensitivity = fan.getSensorsSensitivity()
 				Sensitivity_Humidity = Sensitivity.Humidity
 				Sensitivity_Light = Sensitivity.Light
-				if message.topic == base_topic+"/sensitivity_humidity/set" : 
+				if message.topic == base_topic+"/sensitivity_humidity/set" :
 					Sensitivity_Humidity = value
-				if message.topic == base_topic+"/sensitivity_light/set" : 
+				if message.topic == base_topic+"/sensitivity_light/set" :
 					Sensitivity_Light = value
 				fan.setSensorsSensitivity(int(Sensitivity_Humidity),int(Sensitivity_Light))
 
@@ -142,10 +168,10 @@ def on_message(client, userdata, message):
 				LightSensorSettings = fan.getLightSensorSettings()
 				LightSensorSettings_DelayedStart = LightSensorSettings.DelayedStart
 				LightSensorSettings_RunningTime = LightSensorSettings.RunningTime
-				
-				if message.topic == base_topic+"/lightsensorsettings_delayedstart/set" : 
+
+				if message.topic == base_topic+"/lightsensorsettings_delayedstart/set" :
 					LightSensorSettings_DelayedStart = value
-				if message.topic == base_topic+"/lightsensorsettings_runningtime/set" : 
+				if message.topic == base_topic+"/lightsensorsettings_runningtime/set" :
 					LightSensorSettings_RunningTime = value
 				fan.setLightSensorSettings(int(LightSensorSettings_DelayedStart), int(LightSensorSettings_RunningTime))
 
@@ -157,14 +183,14 @@ def on_message(client, userdata, message):
 				BoostMode_OnOff = BoostMode.OnOff
 				BoostMode_Speed = BoostMode.Speed
 				BoostMode_Seconds = BoostMode.Seconds
-				
-				if message.topic == base_topic+"/boostmode/set" : 
+
+				if message.topic == base_topic+"/boostmode/set" :
 					BoostMode_OnOff = value
-				if message.topic == base_topic+"/boostmodespeed/set" : 
+				if message.topic == base_topic+"/boostmodespeed/set" :
 					BoostMode_Speed = value
-				if message.topic == base_topic+"/boostmodesec/set" : 
+				if message.topic == base_topic+"/boostmodesec/set" :
 					BoostMode_Seconds = value
-				
+
 				fan.setBoostMode(int(BoostMode_OnOff),int(BoostMode_Speed),int(BoostMode_Seconds))
 
 			elif message.topic in (base_topic+"/silenthours_on/set",base_topic+"/silenthours_startinghour/set",base_topic+"/silenthours_startingminute/set",base_topic+"/silenthours_endinghour/set",base_topic+"/silenthours_endingminute/set"):
@@ -177,16 +203,16 @@ def on_message(client, userdata, message):
 				SilentHours_StartingMinute = SilentHours.StartingMinute
 				SilentHours_EndingHour = SilentHours.EndingHour
 				SilentHours_EndingMinute = SilentHours.EndingMinute
-				
-				if message.topic == base_topic+"/silenthours_on/set" : 
+
+				if message.topic == base_topic+"/silenthours_on/set" :
 					SilentHours_On = value
-				if message.topic == base_topic+"/silenthours_startinghour/set" : 
+				if message.topic == base_topic+"/silenthours_startinghour/set" :
 					SilentHours_StartingHour = value
-				if message.topic == base_topic+"/silenthours_startingminute/set" : 
+				if message.topic == base_topic+"/silenthours_startingminute/set" :
 					SilentHours_StartingMinute = value
-				if message.topic == base_topic+"/silenthours_endinghour/set" : 
+				if message.topic == base_topic+"/silenthours_endinghour/set" :
 					SilentHours_EndingHour = value
-				if message.topic == base_topic+"/silenthours_endingminute/set" : 
+				if message.topic == base_topic+"/silenthours_endingminute/set" :
 					SilentHours_EndingMinute = value
 				fan.setSilentHours(int(SilentHours_On),int(SilentHours_StartingHour),int(SilentHours_StartingMinute),int(SilentHours_EndingHour), int(SilentHours_EndingMinute))
 
@@ -197,10 +223,10 @@ def on_message(client, userdata, message):
 				TrickleDays = fan.getTrickleDays()
 				TrickleDays_Weekdays = TrickleDays.Weekdays
 				TrickleDays_Weekends = TrickleDays.Weekends
-				
-				if message.topic == base_topic+"/trickledays_weekdays/set" : 
+
+				if message.topic == base_topic+"/trickledays_weekdays/set" :
 					TrickleDays_Weekdays = value
-				if message.topic == base_topic+"/trickledays_weekends/set" : 
+				if message.topic == base_topic+"/trickledays_weekends/set" :
 					TrickleDays_Weekends = value
 				fan.setTrickleDays(int(TrickleDays_Weekdays),int(TrickleDays_Weekends))
 
@@ -212,9 +238,9 @@ def on_message(client, userdata, message):
 
 			else:
 				print("WTF")
-			
+
 			# Refresh data after a delay
-			time.sleep(5)
+			time.sleep(30)
 			refresh_all(fan, client)
 
 			fan.disconnect()
@@ -236,37 +262,40 @@ client.on_message=on_message #attach function to callback
 client.connect(broker_address)
 
 client.subscribe(base_topic+"/+/set")
+# Subscribe to polling_minutes state to receive retained value on startup
+client.subscribe(base_topic+"/polling_minutes/state")
 
 sensors = [
-    ['sensor',			None,    'humidity', 									'Humidity', 								'%', 	'humidity',		None, 	None, 	None],
-    ['sensor',			None,    'temperature', 								'Temperature', 								'°C', 	'temperature',	None, 	None, 	None],
-    ['sensor',			None,    'light', 										'Light', 									'lx', 	'illuminance',	None, 	None, 	None],
-    ['sensor',			None,    'rpm', 										'RPM', 										'rpm', 	None, 			None, 	None, 	None],
-    ['sensor',			None,    'state', 										'State', 									None, 	None, 			None, 	None, 	None],
-    ['select',			'config','mode', 										'Mode', 									None, 	None, 			None, 	None, 	["MultiMode","DraftShutterMode","WallSwitchExtendedRuntimeMode","WallSwitchNoExtendedRuntimeMode","HeatDistributionMode"]],
-    ['number',			'config','fanspeed_humidity', 							'Fanspeed Humidity', 						'rpm', 	None, 			0, 		2500, 	None],
-    ['number',			'config','fanspeed_light', 								'Fanspeed Light', 							'rpm', 	None, 			0, 	 	2500, 	None],
-    ['number',			'config','fanspeed_trickle', 							'Fanspeed Trickle', 						'rpm', 	None, 			0, 	 	2500, 	None],
-    ['sensor',			'diagnostic','sensitivity_humidityon', 						'Sensitivity Humidity On', 					None, 	None, 			None, 	None, 	None],
-    ['number',			'config','sensitivity_humidity', 						'Sensitivity Humidity', 					'%', 	'humidity', 	0, 	 	3,	 	None],
-    ['sensor',			'diagnostic','sensitivity_lighton', 						'Sensitivity Light On', 					None, 	None, 			None, 	None, 	None],
-    ['number',			'config','sensitivity_light', 							'Sensitivity Light', 						'lx', 	'illuminance',	0, 	 	3,	 	None],
-    ['number',			'config','lightsensorsettings_delayedstart', 			'LightSensorSettings DelayedStart', 		's', 	None, 			0, 	 	10, 	None],
-    ['number',			'config','lightsensorsettings_runningtime', 			'LightSensorSettings Runningtime', 			's', 	None, 			5, 	 	60, 	None],
-    ['number',			'config','heatdistributorsettings_temperaturelimit', 	'HeatDistributorSettings TemperatureLimit', '°C', 	'temperature', 	0, 	 	100, 	None],
-    ['number',			'config','heatdistributorsettings_fanspeedbelow', 		'HeatDistributorSettings FanSpeedBelow', 	'rpm', 	None, 			0, 	 	2500, 	None],
-    ['number',			'config','heatdistributorsettings_fanspeedabove', 		'HeatDistributorSettings FanSpeedAbove', 	'rpm', 	None, 			0, 	 	2500, 	None],
-    ['number',			'config','boostmode', 									'BoostMode', 								None, 	None, 			0, 	 	1,	 	None],
-    ['number',			'config','boostmodespeed', 								'BoostMode Speed', 							'rpm', 	None, 			0, 	 	2500, 	None],
-    ['number',			'config','boostmodesec', 								'BoostMode Time', 							's', 	None, 			0, 	 	900, 	None],
-    ['number',			'config','silenthours_on', 								'SilentHours On', 							None, 	None, 			0, 	 	1,	 	None],
-    ['number',			'config','silenthours_startinghour', 					'SilentHours StartingHour', 				'H', 	None, 			0, 	 	23, 	None],
-    ['number',			'config','silenthours_startingminute', 					'SilentHours StartingMinute', 				'Min', 	None, 			0, 	 	59, 	None],
-    ['number',			'config','silenthours_endinghour', 						'SilentHours EndingHour', 					'H', 	None, 			0, 	 	23, 	None],
-    ['number',			'config','silenthours_endingminute', 					'SilentHours EndingMinute', 				'Min', 	None, 			0, 	 	59, 	None],
-    ['number',			'config','trickledays_weekdays', 						'TrickleDays Weekdays', 					None, 	None, 			0, 	 	7,	 	None],
-    ['number',			'config','trickledays_weekends', 						'TrickleDays Weekends', 					None, 	None, 			0, 	 	3,	 	None],
-    ['number',			'config','automatic_cycles', 							'Automatic Cycles', 						None, 	None, 			0, 	 	3,	 	None]
+    ['sensor',			None,	 'humidity',														'Humidity',								'%',	'humidity',		None,	None,	None],
+    ['sensor',			None,	 'temperature',													'Temperature',							'°C',	'temperature',	None,	None,	None],
+    ['sensor',			None,	 'light',														'Light',								'lx',	'illuminance',	None,	None,	None],
+    ['sensor',			None,	 'rpm',														'RPM',								'rpm',	None,			None,	None,	None],
+    ['sensor',			None,	 'state',													'State',							None,	None,			None,	None,	None],
+    ['select',			'config','mode',														'Mode',							None,	None,			None,	None,	["MultiMode","DraftShutterMode","WallSwitchExtendedRuntimeMode","WallSwitchNoExtendedRuntimeMode","HeatDistributionMode"]],
+    ['number',			'config','fanspeed_humidity',										'Fanspeed Humidity',						'rpm',	None,			0,		2500,	None],
+    ['number',			'config','fanspeed_light',											'Fanspeed Light',							'rpm',	None,			0,	 	2500,	None],
+    ['number',			'config','fanspeed_trickle',										'Fanspeed Trickle',						'rpm',	None,			0,	 	2500,	None],
+    ['sensor',			'diagnostic','sensitivity_humidityon',								'Sensitivity Humidity On',						None,	None,			None,	None,	None],
+    ['number',			'config','sensitivity_humidity',									'Sensitivity Humidity',						'%',	'humidity',		0,	 	3,		None],
+    ['sensor',			'diagnostic','sensitivity_lighton',									'Sensitivity Light On',						None,	None,			None,	None,	None],
+    ['number',			'config','sensitivity_light',										'Sensitivity Light',						'lx',	'illuminance',	0,	 	3,		None],
+    ['number',			'config','lightsensorsettings_delayedstart',					'LightSensorSettings DelayedStart',		's',	None,			0,	 	10,	None],
+    ['number',			'config','lightsensorsettings_runningtime',					'LightSensorSettings Runningtime',			's',	None,			5,	 	60,	None],
+    ['number',			'config','heatdistributorsettings_temperaturelimit',			'HeatDistributorSettings TemperatureLimit',	'°C',	'temperature',	0,	 	100,	None],
+    ['number',			'config','heatdistributorsettings_fanspeedbelow',				'HeatDistributorSettings FanSpeedBelow',		'rpm',	None,			0,	 	2500,	None],
+    ['number',			'config','heatdistributorsettings_fanspeedabove',				'HeatDistributorSettings FanSpeedAbove',		'rpm',	None,			0,	 	2500,	None],
+    ['number',			'config','boostmode',												'BoostMode',							None,	None,			0,	 	1,		None],
+    ['number',			'config','boostmodespeed',											'BoostMode Speed',						'rpm',	None,			0,	 	2500,	None],
+    ['number',			'config','boostmodesec',											'BoostMode Time',							's',	None,			0,	 	900,	None],
+    ['number',			'config','silenthours_on',										'SilentHours On',							None,	None,			0,	 	1,		None],
+    ['number',			'config','silenthours_startinghour',							'SilentHours StartingHour',				'H',	None,			0,	 	23,	None],
+    ['number',			'config','silenthours_startingminute',						'SilentHours StartingMinute',				'Min',	None,			0,	 	59,	None],
+    ['number',			'config','silenthours_endinghour',							'SilentHours EndingHour',					'H',	None,			0,	 	23,	None],
+    ['number',			'config','silenthours_endingminute',							'SilentHours EndingMinute',				'Min',	None,			0,	 	59,	None],
+    ['number',			'config','trickledays_weekdays',								'TrickleDays Weekdays',					None,	None,			0,	 	7,		None],
+    ['number',			'config','trickledays_weekends',								'TrickleDays Weekends',					None,	None,			0,	 	3,		None],
+    ['number',			'config','automatic_cycles',									'Automatic Cycles',						None,	None,			0,	 	3,		None],
+    ['number',			'config','polling_minutes',										'Polling Min',							'Min',	None,			1,	 	1500,	None],
 ]
 
 # Define the device data (same for all sensors)
@@ -280,7 +309,7 @@ device_data = {
 # Generate MQTT discovery messages for each sensor
 for sensor in sensors:
     device_category, entity_category, sensor_id, sensor_name, unit_of_measurement, device_class, min, max, options = sensor
-    
+
     # Construct the payload for each sensor
     sensor_payload = {
         "name": sensor_name,
@@ -291,7 +320,7 @@ for sensor in sensors:
 
     if entity_category is not None:
         sensor_payload["entity_category"] = entity_category
-        if device_category in ("number","select"): 
+        if device_category in ("number","select"):
             sensor_payload["command_topic"] = f"{base_topic}/{sensor_id}/set"
 
     if options is not None:
@@ -304,15 +333,13 @@ for sensor in sensors:
         sensor_payload["unit_of_measurement"] = unit_of_measurement
     if device_class is not None:
         sensor_payload["device_class"] = device_class
-    
+
     # Convert the dictionary to a JSON string
     discovery_message = json.dumps(sensor_payload, indent=4)
-    
-    # Print the discovery message
     client.publish(discovery_topic+"/"+device_category+"/"+sensor_id+"/config",discovery_message, retain=True)
 
 fan = None
-with bluetooth_lock: 
+with bluetooth_lock:
 	try:
 		# Publish data
 		fan = Calima(mac, pin)
@@ -326,14 +353,19 @@ with bluetooth_lock:
 # Start on_message loop
 client.loop_start()
 
-# Loop to send fan speed every 5 minutes
+# Loop to send fan speed every minute
 try:
 	while True:
-        
-		# Update every minute
-		time.sleep(60)
+		# Update every Polling_minutes
+		Slept_minutes=0
+		while Slept_minutes < Polling_minutes:
+			time.sleep(60)
+			Slept_minutes += 1
+			# If Polling_minutes is reduced via MQTT during sleep, stop waiting immediately
+			if Slept_minutes >= Polling_minutes:
+				break
 
-		with bluetooth_lock: 
+		with bluetooth_lock:
 			try:
 				# Publish data
 				fan = Calima(mac, pin)
@@ -342,7 +374,7 @@ try:
 
 				if (FanState is None):
 					print('Could not read data')
-				else: 
+				else:
 					client.publish(base_topic+"/humidity/state",FanState.Humidity, retain=True)
 					client.publish(base_topic+"/temperature/state",FanState.Temp, retain=True)
 					client.publish(base_topic+"/light/state",FanState.Light, retain=True)
@@ -353,8 +385,7 @@ try:
 				fan.disconnect()
 			except :
 				exit()
-			
-		
+
 except KeyboardInterrupt:
 	print("Program interrupted by user.")
 finally:
