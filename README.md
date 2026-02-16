@@ -37,6 +37,27 @@ Updating values works directly with MQTT and are also updatable in HA
           retain: false
 ```
 
+The version I currently use. Set polling time first to 1min, change value, and wait until value changed. Then set polling time back to normal 60min. 
+```
+      - service: number.set_value
+        data:
+          value: 1
+        target:
+          entity_id: number.projector_room_fan_polling_min
+      - service: number.set_value
+        data:
+          value: 22
+        target:
+          entity_id: number.projector_room_fan_heatdistributorsettings_temperaturelimit
+      - wait_template: "{{ states('sensor.projector_room_fan_rpm') | int > 2000 }}"
+        timeout: "00:10:00"
+      - service: number.set_value
+        data:
+          value: 60
+        target:
+          entity_id: number.projector_room_fan_polling_min
+```
+
 Installing as service
 ```
 sudo cp paxcalima2mqtt.service /etc/systemd/system
