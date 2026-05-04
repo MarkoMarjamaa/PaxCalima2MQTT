@@ -17,8 +17,8 @@ device_id="projector_room_fan"
 
 bluetooth_lock = threading.Lock()
 
-# Default polling (minutes). Will be overwritten by retained MQTT state if available.
-Polling_minutes = 1
+# Default polling (seconds). Will be overwritten by retained MQTT state if available.
+Polling_seconds = 60
 
 
 def refresh_all(fan, client):
@@ -78,27 +78,27 @@ def refresh_all(fan, client):
 
 ############
 def on_message(client, userdata, message):
-	global Polling_minutes
+	global Polling_seconds
 	value = str(message.payload.decode("utf-8"))
 	fan = None
 
-	# Handle polling_minutes first (no Bluetooth needed)
-	if message.topic == base_topic+"/polling_minutes/set":
+	# Handle polling_seconds first (no Bluetooth needed)
+	if message.topic == base_topic+"/polling_seconds/set":
 		# Only publish to state (retain). Actual update happens when state is received.
 		try:
-			pm = int(float(value))
-			if pm < 1:
-				pm = 1
-			client.publish(base_topic+"/polling_minutes/state", pm, retain=True)
+			ps = int(float(value))
+			if ps < 1:
+				ps = 1
+			client.publish(base_topic+"/polling_seconds/state", ps, retain=True)
 		except:
 			pass
 		return
-	elif message.topic == base_topic+"/polling_minutes/state":
+	elif message.topic == base_topic+"/polling_seconds/state":
 		try:
-			pm = int(float(value))
-			if pm < 1:
-				pm = 1
-			Polling_minutes = pm
+			ps = int(float(value))
+			if ps < 1:
+				ps = 1
+			Polling_seconds = ps
 		except:
 			pass
 		return
@@ -240,7 +240,7 @@ def on_message(client, userdata, message):
 				print("WTF")
 
 			# Refresh data after a delay
-			time.sleep(30)
+			time.sleep(10)
 			refresh_all(fan, client)
 
 			fan.disconnect()
@@ -263,7 +263,8 @@ client.connect(broker_address)
 
 client.subscribe(base_topic+"/+/set")
 # Subscribe to polling_minutes state to receive retained value on startup
-client.subscribe(base_topic+"/polling_minutes/state")
+#client.subscribe(base_topic+"/polling_minutes/state")
+client.subscribe(base_topic+"/polling_seconds/state")
 
 sensors = [
     ['sensor',			None,	 'humidity',														'Humidity',								'%',	'humidity',		None,	None,	None],
@@ -295,7 +296,7 @@ sensors = [
     ['number',			'config','trickledays_weekdays',								'TrickleDays Weekdays',					None,	None,			0,	 	7,		None],
     ['number',			'config','trickledays_weekends',								'TrickleDays Weekends',					None,	None,			0,	 	3,		None],
     ['number',			'config','automatic_cycles',									'Automatic Cycles',						None,	None,			0,	 	3,		None],
-    ['number',			'config','polling_minutes',										'Polling Min',							'Min',	None,			1,	 	1500,	None],
+    ['number',			'config','polling_seconds',										'Polling Sec',							'Sec',	None,			1,	 	36000,	None],
 ]
 
 # Define the device data (same for all sensors)
@@ -356,13 +357,14 @@ client.loop_start()
 # Loop to send fan speed every minute
 try:
 	while True:
-		# Update every Polling_minutes
-		Slept_minutes=0
-		while Slept_minutes < Polling_minutes:
-			time.sleep(60)
-			Slept_minutes += 1
-			# If Polling_minutes is reduced via MQTT during sleep, stop waiting immediately
-			if Slept_minutes >= Polling_minutes:
+		# Update every Polling_seconds
+		Slept_seconds=0
+		while Slept_seconds < Polling_seconds:
+			poll_secs = 10
+			time.sleep(poll_secs)
+			Slept_seconds += poll_secs
+			# If Polling_seconds is reduced via MQTT during sleep, stop waiting immediately
+			if Slept_seconds >= Polling_seconds:
 				break
 
 		with bluetooth_lock:
